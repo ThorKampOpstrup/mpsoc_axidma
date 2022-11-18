@@ -343,8 +343,9 @@ add_entry_code axidma_add_entry(sg_list *lst, unsigned sz) {
     return ret;
 }
 
+//!Name changed so it does not mention s2mm
 //Actually writes an entry into RAM
-static void s2mm_write_sg_entry(void *sg_buf, physlist const *sg_plist, sg_entry *e) {
+static void write_sg_entry(void *sg_buf, physlist const *sg_plist, sg_entry *e) {
     DBG_PRINT("%d", e->sg_offset);
     DBG_PRINT("%d", e->data_offset);
     DBG_PRINT("%d", e->len);
@@ -377,15 +378,15 @@ static void s2mm_write_sg_entry(void *sg_buf, physlist const *sg_plist, sg_entry
 void axidma_write_sg_list(axidma_ctx *ctx, sg_list *lst, int pinner_fd, handle *h) {
     //Validate inputs, just in case
     if (!ctx) {
-        fprintf(stderr, "axidma_s2mm_transfer: invalid NULL context\n");
+        fprintf(stderr, "invalid NULL context\n");
         return;
     }
     if (!lst) {
-        fprintf(stderr, "axidma_s2mm_transfer: invalid NULL list\n");
+        fprintf(stderr, "invalid NULL list\n");
         return;
     }
     if (lst->sentinel.next == &(lst->sentinel)) {
-        fprintf(stderr, "axidma_s2mm_transfer: invalid list with no SG entries\n");
+        fprintf(stderr, "invalid list with no SG entries\n");
         return;
     }
     
@@ -396,7 +397,8 @@ void axidma_write_sg_list(axidma_ctx *ctx, sg_list *lst, int pinner_fd, handle *
     
     //Step through linked list of SG entries and write each one to RAM
     for (sg_entry *e = lst->sentinel.next; e != &(lst->sentinel); e = e->next) {
-        s2mm_write_sg_entry(lst->sg_buf, lst->sg_plist, e);
+        //!Name change of fuction
+        write_sg_entry(lst->sg_buf, lst->sg_plist, e);
     }
     
     //Flush cache
@@ -472,6 +474,72 @@ void axidma_s2mm_transfer(axidma_ctx *ctx, int wait_irq, int enable_timeout) {
     
     return;
 }
+//!implemented with MM2S
+//wait_irq is not used
+void axidma_mm2s_transfer(axidma_ctx *ctx, int wait_irq, int enable_timeout) {
+    //Validate inputs, just in case
+    if (!ctx) {
+        fprintf(stderr, "axidma_mm2s_transfer: invalid NULL context\n");
+        return;
+    }
+    if (!ctx->lst) {
+        fprintf(stderr, "SG List not written to RAM. Did you forget to call axidma_write_sg_list?\n");
+        return;
+    }
+    
+    sg_list *lst = ctx->lst;
+    
+    //count entries in the list;
+    int cnt = 0;
+    for (sg_entry *e = lst->sentinel.next; e != &(lst->sentinel); e = e->next) {
+        if (e->is_EOF) cnt++;
+        
+        volatile sg_descriptor *desc = (volatile sg_descriptor *) (lst->sg_buf + e->sg_offset);
+    }
+    
+    if (!cnt) {
+        fprintf(stderr, "axidma_mm2s_transfer: invalid SG list with no entries\n");
+        return;
+    }
+    
+    //Now we actually send the commands to the AXI DMA's registers
+    //This follows the programming sequence in the product guide. First, we 
+    //write the pointer to the first descriptor
+    volatile axidma_regs *regs = (volatile axidma_regs *) ctx->reg_base;
+    
+    uint64_t curdesc_phys = virt_to_phys(lst->sg_plist, lst->sentinel.next->sg_offset);
+    DBG_PRINT("%lx", curdesc_phys);
+    DBG_PRINT("%lx", lst->sg_plist->entries[0].addr);
+    DBG_PRINT("%u", lst->sentinel.next->sg_offset);
+    DBG_PRINT("%c", '\n');
+    regs->MM2S_curdesc_lsb = (uint32_t) (curdesc_phys & 0xFFFFFFFF);
+    regs->MM2S_curdesc_msb = (uint32_t) ((curdesc_phys>>32) & 0xFFFFFFFF);
+    
+    //Enable all interrupts, set cyclic mode, and set run/stop to 1
+    //Also, set timeout to something reasonable?
+    
+    regs->MM2S_DMACR = (enable_timeout ? (200<<24) : 0) | ((cnt & 0xFF) << 16) | (0b111000000000001); 
+    
+    //Now write the pointer to the last descriptor. This starts the transfer
+    uint64_t taildesc_phys = virt_to_phys(lst->sg_plist, lst->sentinel.prev->sg_offset);
+    regs->MM2S_taildesc_lsb = (uint32_t) (taildesc_phys & 0xFFFFFFFF);
+    regs->MM2S_taildesc_msb = (uint32_t) ((taildesc_phys>>32) & 0xFFFFFFFF);
+
+    //!Do not wait for interrupt    
+    // if (wait_irq) {        
+    //     //At this point, transfer has started. Wait for the interrupt!
+    //     fprintf(stderr,"Waiting for DMA to finish!\n");
+    //     fflush(stdout);
+        
+    //     unsigned pending;
+    //     read(ctx->fd, &pending, sizeof(pending));
+    //     DBG_PRINT("%x", regs->MM2S_DMACR);
+    //     DBG_PRINT("%x", regs->MM2S_DMASR);
+    //     DBG_PUTS("Interrupt received");
+    // }
+    
+    return;
+}
 
 /*
  * Used for traversing buffers returned from an S2MM trasnfer
@@ -494,6 +562,76 @@ s2mm_buf axidma_dequeue_s2mm_buf(sg_list *lst) {
     }
     
     s2mm_buf ret = {
+        .base = lst->data_buf + e->data_offset,
+        .len = 0,
+        .code = TRANSFER_SUCCESS
+    };
+    
+    //Artificially move e to the previous element, to make the do while loop 
+    //cleaner
+    e = e->prev;
+    volatile sg_descriptor *desc;
+    do {
+        e = e->next; //This "post-increment" is why we artifically moved e back
+        desc = (volatile sg_descriptor *) (lst->sg_buf + e->sg_offset);
+        
+        
+        DBG_PRINT("%u", desc->control.sof);
+        DBG_PRINT("%u", desc->control.eof);
+        DBG_PRINT("%u", desc->control.len);
+        DBG_PRINT("%u", desc->status.complete);
+        DBG_PRINT("%u", desc->status.decode_err);
+        DBG_PRINT("%u", desc->status.eof);
+        DBG_PRINT("%u", desc->status.int_err);
+        DBG_PRINT("%u", desc->status.len);
+        DBG_PRINT("%u", desc->status.slave_err);
+        DBG_PRINT("%u", desc->status.sof);
+        DBG_PRINT("%08x", desc->buffer_lsb);
+        DBG_PRINT("%08x", desc->buffer_msb);
+        DBG_PRINT("%08x", desc->next_desc_lsb);
+        DBG_PRINT("%08x", desc->next_desc_msb);
+        
+        
+        DBG_PRINT("%d", e == lst->sentinel.prev);
+        DBG_PRINT("%d", e == &(lst->sentinel));
+        DBG_PUTS("--");
+        ret.len += desc->status.len;
+        
+        if (!desc->status.complete || desc->status.decode_err || desc->status.int_err || desc->status.slave_err) {
+            ret.code = TRANSFER_FAILED;
+        }
+        //Because AXI DMA is super inconvenient, we have to do this annoying
+        //check
+        
+        if (e == lst->sentinel.prev) break;
+    } while (!desc->status.eof);
+    
+    //Update to_visit
+    lst->to_vist = e->next;
+    
+    DBG_PUTS("");
+    return ret;
+}
+
+//!Same as above, chagned to use MM2S
+mm2s_buf axidma_dequeue_mm2s_buf(sg_list *lst) {
+    DBG_PUTS("Entered dequeue");
+    sg_entry *e = lst->to_vist;
+    
+    if (!e) {
+        fprintf(stderr, "Cannot dequeue mm2s buffer from empty list\n");
+        mm2s_buf ret = {NULL, 0, END_OF_LIST};
+        return ret;
+    }
+    
+    //If we have reached the end of the list...
+    if (e == &(lst->sentinel)) {
+        lst->to_vist = NULL;
+        mm2s_buf ret = {NULL, 0, END_OF_LIST};
+        return ret;
+    }
+    
+    mm2s_buf ret = {
         .base = lst->data_buf + e->data_offset,
         .len = 0,
         .code = TRANSFER_SUCCESS

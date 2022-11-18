@@ -118,6 +118,13 @@ typedef struct {
     buf_code code;
 } s2mm_buf;
 
+//!Identical with above
+typedef struct {
+    void *base;
+    unsigned len;
+    buf_code code;
+} mm2s_buf;
+
 //Functions to open and close an AXI DMA context.
 axidma_ctx* axidma_open(char const* path);
 void axidma_close(axidma_ctx *ctx);
@@ -164,12 +171,15 @@ void axidma_write_sg_list(axidma_ctx *ctx, sg_list *lst, int pinner_fd, handle *
  * TODO: find nice way to decouple from pinner_fns
 */
 void axidma_s2mm_transfer(axidma_ctx *ctx, int wait_irq, int enable_timeout);
+//! New fuction
+void axidma_mm2s_transfer(axidma_ctx *ctx, int wait_irq, int enable_timeout);
 
 /*
  * Used for traversing buffers returned from an S2MM trasnfer
 */
 s2mm_buf axidma_dequeue_s2mm_buf(sg_list *lst);
-
+//! New fuction
+mm2s_buf axidma_dequeue_mm2s_buf(sg_list *lst);
 /*
  * Call this function if you want to re-traverse the returned buffers
 */

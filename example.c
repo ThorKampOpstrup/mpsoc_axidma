@@ -6,7 +6,7 @@
 #include "axidma.h"
 #include "pinner_fns.h"
 
-#define DATA_BUF_SIZE 20000
+#define DATA_BUF_SIZE 10000
 //Ensure DATA_BUF_SIZE >= NUM_BUFFERS*BUFFER_SZ
 #define NUM_BUFFERS 10
 #define BUFFER_SZ 1600
@@ -24,33 +24,57 @@ int main(int argc, char **argv) {
     
     int pinner_fd = pinner_open();
     
-    char *sg_buf = malloc(5000);
-    
+    char *tx_sg_buf = malloc(5000);
+    char *rx_sg_buf = malloc(5000);
+
     //For the sake of testing, poison the initial SG list to see what's going on
     for (int i = 0; i < 5000; i++) {
-        sg_buf[i] = 0x00;
+        tx_sg_buf[i] = 0x00;
+        rx_sg_buf[i] = 0x00;
     }
     
-    char *data_buf = malloc(DATA_BUF_SIZE);
+    char *tx_buf = malloc(sizeof(int)*DATA_BUF_SIZE);
+    char *rx_buf = malloc(sizeof(int)*DATA_BUF_SIZE);
+    for (int i = 0; i < DATA_BUF_SIZE; i++) {
+        tx_buf[i] = i;
+        rx_buf[i] = 0x00;
+    }
     
-    struct pinner_physlist sg_plist;
-    struct pinner_handle sg_handle;
-    int rc = pin_buf(pinner_fd, sg_buf, 5000, &sg_handle, &sg_plist);
+    // Pin tx 
+    struct pinner_physlist tx_sg_plist;
+    struct pinner_handle tx_sg_handle;
+    int rc = pin_buf(pinner_fd, tx_sg_buf, 5000, &tx_sg_handle, &tx_sg_plist);
     if (rc < 0) {
         return -1;
     }
-    
-    struct pinner_physlist data_plist;
-    struct pinner_handle data_handle;
-    rc = pin_buf(pinner_fd, data_buf, DATA_BUF_SIZE, &data_handle, &data_plist);
+
+    struct pinner_physlist tx_data_plist;
+    struct pinner_handle tx_data_handle;
+    rc = pin_buf(pinner_fd, tx_buf, DATA_BUF_SIZE, &tx_data_handle, &tx_data_plist);
     if (rc < 0) {
         return -1;
     }
-    
-    sg_list *lst = axidma_list_new(sg_buf, &sg_plist, data_buf, &data_plist);
-    
+
+
+    // Pin rx
+    struct pinner_physlist rx_sg_plist;
+    struct pinner_handle rx_sg_handle;
+    rc = pin_buf(pinner_fd, rx_sg_buf, 5000, &rx_sg_handle, &rx_sg_plist);
+    if (rc < 0) {
+        return -1;
+    }
+
+    struct pinner_physlist rx_data_plist;
+    struct pinner_handle rx_data_handle;
+    rc = pin_buf(pinner_fd, rx_buf, DATA_BUF_SIZE, &rx_data_handle, &rx_data_plist);
+    if (rc < 0) {
+        return -1;
+    }
+
+    //set rx list
+    sg_list *rx_lst = axidma_list_new(rx_sg_buf, &rx_sg_plist, rx_buf, &rx_data_plist);
     for (int i = 0; i < NUM_BUFFERS; i++) {
-        rc = axidma_add_entry(lst, BUFFER_SZ);
+        rc = axidma_add_entry(rx_lst, BUFFER_SZ);
         if (rc == ADD_ENTRY_SG_OOM) {
             puts("Ran out of memory for SG descriptors");
             break;
@@ -63,11 +87,33 @@ int main(int argc, char **argv) {
         }
     }
     
-    axidma_write_sg_list(ctx, lst, pinner_fd, &sg_handle);
+    axidma_write_sg_list(ctx, rx_lst, pinner_fd, &rx_sg_handle);
+    //recieve information is now set.
+
+    //set tx list
+    sg_list *tx_lst = axidma_list_new(tx_sg_buf, &tx_sg_plist, tx_buf, &tx_data_plist);
+    for (int i = 0; i < NUM_BUFFERS; i++) {
+        rc = axidma_add_entry(tx_lst, BUFFER_SZ);
+        if (rc == ADD_ENTRY_SG_OOM) {
+            puts("Ran out of memory for SG descriptors");
+            break;
+        } else if (rc == ADD_ENTRY_BUF_OOM) {
+            puts("Ran out of memory for data");
+            break;
+        } else if (rc == ADD_ENTRY_ERROR) {
+            puts("Unrecoverable error");
+            exit(-1);
+        }
+    }
+    
+    axidma_write_sg_list(ctx, tx_lst, pinner_fd, &tx_sg_handle);
+
+    //Start tx transfer
+    axidma_mm2s_transfer(ctx, 0, 0);
     
     axidma_s2mm_transfer(ctx, 1, 0);
     
-    s2mm_buf buf = axidma_dequeue_s2mm_buf(lst);
+    s2mm_buf buf = axidma_dequeue_s2mm_buf(rx_lst);
     int cnt = 0;
     while (buf.code != END_OF_LIST) {
         
@@ -81,18 +127,21 @@ int main(int argc, char **argv) {
         }
         puts("");
         
-        buf = axidma_dequeue_s2mm_buf(lst);
+        buf = axidma_dequeue_s2mm_buf(rx_lst);
     }
     
     printf("Got %d good packets out of %d\n", cnt, NUM_BUFFERS);
     
-    axidma_list_del(lst);
+    axidma_list_del(rx_lst);
+    axidma_list_del(tx_lst);
     
     axidma_close(ctx);
     
-    unpin_buf(pinner_fd, &data_handle);
-    unpin_buf(pinner_fd, &sg_handle);
-    
+    unpin_buf(pinner_fd, &tx_sg_plist);
+    unpin_buf(pinner_fd, &tx_data_plist);
+    unpin_buf(pinner_fd, &rx_sg_plist);
+    unpin_buf(pinner_fd, &rx_data_plist);
+
     pinner_close(pinner_fd);
     return 0;
 }

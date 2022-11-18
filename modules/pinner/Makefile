@@ -5,7 +5,7 @@ CC=$(CROSS_COMPILE)gcc
 
 obj-m += pinner.o
 
-KDIR  := /home/mahkoe/research/stale/linux-xlnx
+KDIR  := /home/thor/Documents/Student_worker_Drones4Safety/xilinx_linux/linux-xlnx
 PWD		:= $(shell pwd)
 
 default:

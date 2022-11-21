@@ -42,7 +42,7 @@ EXAMPLE = example
 default: $(OUT) $(AXIDMAOBJ) $(PINNEROBJ) $(EXAMPLE)
 
 $(EXAMPLE): $(OUT)
-	$(CC) -o $@ -L$(LDIR) -l:libaxidma.so example.c
+	$(CC) -o $@ -l:libaxidma.so example.c
 
 $(AXIDMAOBJ): 
 	${MAKE} -C $(AXIDMADIR)

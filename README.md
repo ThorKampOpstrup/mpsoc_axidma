@@ -103,18 +103,3 @@ This is simply a physical address and a length:
 # Example
 
 (moved to userspace_example.c in this folder)
-
-# Building
-Before building, export extra CFLAGS:
-```
-    export EXTRA_CFLAGS=-I/usr/include/aarch64-linux-gnu
-    make
-```
-
-Install the module:
-```
-    sudo mkdir /lib/modules/`uname -r`/kernel/drivers/dma
-    sudo cp pinner.ko /lib/modules/`uname -r`/kernel/drivers/dma
-    echo 'pinner' | sudo tee -a /etc/modules
-    sudo modprobe pinner
-```

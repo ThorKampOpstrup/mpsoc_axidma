@@ -38,11 +38,12 @@ PINNEROBJ = $(MDIR)/pinner/pinner.ko
 CINC = -I$(IDIR)
 
 EXAMPLE = example
+EXAMPLESRC = example.c
 
 default: $(OUT) $(AXIDMAOBJ) $(PINNEROBJ) $(EXAMPLE)
 
 $(EXAMPLE): $(OUT)
-	$(CC) -o $@ -l:libaxidma.so example.c
+	$(CC) -L $(INSTALL_LDIR) -l:libaxidma.so $(EXAMPLESRC) -o $@ 
 
 $(AXIDMAOBJ): 
 	${MAKE} -C $(AXIDMADIR)

@@ -6,7 +6,7 @@ KVERSION := $(shell uname -r)
 PWD		:= $(shell pwd)
 
 default:
-	${MAKE} -C /lib/modules/$(KVERSION)/build M=${PWD} modules
+	${MAKE} -C /lib/modules/$(KVERSION)/build M=${PWD} modules/pinner modules/axidma
 
 clean:
 	${MAKE} -C /lib/modules/$(KVERSION)/build M=${PWD} clean

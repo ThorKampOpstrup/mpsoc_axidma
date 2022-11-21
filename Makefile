@@ -5,12 +5,12 @@ obj-m += pinner.o
 KVERSION := $(shell uname -r)
 PWD		:= $(shell pwd)
 
-MODULEDIRS := $(wildcard modules/*)
+PINNERDIR := modules/pinner
 
-default: $(MODULEDIRS)
+default: $(PINNERDIR)
 	${MAKE} -C /lib/modules/$(KVERSION)/build M=${PWD}:modules/pinner:modules/axidma pinner
 
-$(MODULEDIRS):
+$(PINNERDIR):
 	${MAKE} -C $@
 
 clean:

@@ -1,5 +1,4 @@
 CC=$(CROSS_COMPILE)gcc
-EXTRA_CFLAGS=-I/usr/include/$( gcc -dumpmachine )/asm
 
 obj-m += axidma.o
 

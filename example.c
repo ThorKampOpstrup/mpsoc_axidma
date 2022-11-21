@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "pinner.h"
-#include "axidma.h"
-#include "pinner_fns.h"
+#include "axidma/pinner.h"
+#include "axidma/axidma.h"
+#include "axidma/pinner_fns.h"
 
 #define DATA_BUF_SIZE 10000
 //Ensure DATA_BUF_SIZE >= NUM_BUFFERS*BUFFER_SZ

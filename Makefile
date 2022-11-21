@@ -16,3 +16,6 @@ $(PINNERDIR):
 clean:
 	${MAKE} -C /lib/modules/$(KVERSION)/build M=${PWD} clean
 	
+
+.PHONY: all $(PINNERDIR)
+

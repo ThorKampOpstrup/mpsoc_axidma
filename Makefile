@@ -43,7 +43,7 @@ EXAMPLESRC = example.c
 default: $(OUT) $(AXIDMAOBJ) $(PINNEROBJ) $(EXAMPLE)
 
 $(EXAMPLE): $(OUT)
-	$(CC) -L $(INSTALL_LDIR) -l:libaxidma.so $(EXAMPLESRC) -o $@ 
+	$(CC) $(EXAMPLESRC) -l:libaxidma.so -o $@ 
 
 $(AXIDMAOBJ): 
 	${MAKE} -C $(AXIDMADIR)

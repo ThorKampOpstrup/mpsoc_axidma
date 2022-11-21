@@ -103,3 +103,12 @@ This is simply a physical address and a length:
 # Example
 
 (moved to userspace_example.c in this folder)
+
+# Build and install
+```
+	export EXTRA_CFLAGS=-I/usr/include/aarch64-linux-gnu/asm
+	make
+	sudo mkdir /usr/lib/modules/$( uname -r )/kernel/drivers/dma 2> /dev/null
+	sudo cp pinner.ko /usr/lib/modules/$( uname -r )/kernel/drivers/dma
+	sudo modprobe pinner
+```

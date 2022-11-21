@@ -8,7 +8,7 @@ PWD		:= $(shell pwd)
 PINNERDIR := modules/pinner/
 
 default: $(PINNERDIR)
-	${MAKE} -C /lib/modules/$(KVERSION)/build M=${PWD} pinner
+	${MAKE} -C /lib/modules/$(KVERSION)/build M=${PWD} modules
 
 $(PINNERDIR):
 	${MAKE} -C $@

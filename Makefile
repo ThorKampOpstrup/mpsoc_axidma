@@ -43,7 +43,7 @@ EXAMPLESRC = example.c
 default: $(OUT) $(AXIDMAOBJ) $(PINNEROBJ) $(EXAMPLE)
 
 $(EXAMPLE): $(OUT)
-	$(CC) $(EXAMPLESRC) -l:libaxidma.so -o $@ 
+	$(CC) $(EXAMPLESRC) -l:$(_OUT) -o $@ 
 
 $(AXIDMAOBJ): 
 	${MAKE} -C $(AXIDMADIR)
@@ -83,7 +83,7 @@ uninstall: $(INSTALL_OUT) $(INSTALL_HEADERS)
 
 .PHONY: clean
 clean:
-	rm -rf $(ODIR) $(LDIR)
+	rm -rf $(ODIR) $(LDIR) $(EXAMPLE)
 
 	${MAKE} -C $(AXIDMADIR) clean
 	${MAKE} -C $(PINNERDIR) clean

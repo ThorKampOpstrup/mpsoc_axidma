@@ -10,7 +10,7 @@ default:
 	${MAKE} -C /lib/modules/$(KVERSION)/build M=${PWD} modules
 
 install:
-	mkdir /usr/lib/modules/$( uname -r )/kernel/drivers/dma 2> /dev/null
+	mkdir /usr/lib/modules/$(KVERSION)/kernel/drivers/dma 2> /dev/null
 	cp axidma.ko /usr/lib/modules/$( uname -r )/kernel/drivers/dma
 	modprobe axidma
 

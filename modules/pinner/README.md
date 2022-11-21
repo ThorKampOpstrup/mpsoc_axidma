@@ -106,9 +106,7 @@ This is simply a physical address and a length:
 
 # Build and install
 ```
-	export EXTRA_CFLAGS=-I/usr/include/aarch64-linux-gnu/asm
+	export EXTRA_CFLAGS=-I/usr/include/$( gcc -dumpmachine )
 	make
-	sudo mkdir /usr/lib/modules/$( uname -r )/kernel/drivers/dma 2> /dev/null
-	sudo cp pinner.ko /usr/lib/modules/$( uname -r )/kernel/drivers/dma
-	sudo modprobe pinner
+	sudo make install
 ```

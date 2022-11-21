@@ -223,9 +223,7 @@ Believe me it's worth the effort!
 
 # Build and install
 ```
-	export EXTRA_CFLAGS=-I/usr/include/aarch64-linux-gnu/asm
+	export EXTRA_CFLAGS=-I/usr/include/$( gcc -dumpmachine )
 	make
-	sudo mkdir /usr/lib/modules/$( uname -r )/kernel/drivers/dma 2> /dev/null
-	sudo cp axidma.ko /usr/lib/modules/$( uname -r )/kernel/drivers/dma
-	sudo modprobe axidma
+	sudo make install
 ```
